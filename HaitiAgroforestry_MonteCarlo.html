@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monte Carlo NPV Simulator — Les Cayes Agroforestry Project</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green:       #1B5E20;
+    --green-mid:   #2E7D32;
+    --green-light: #C8E6C9;
+    --green-pale:  #F1F8E9;
+    --teal:        #00695C;
+    --teal-light:  #E0F2F1;
+    --amber:       #E65100;
+    --amber-light: #FFF8E1;
+    --red:         #B71C1C;
+    --red-light:   #FFEBEE;
+    --blue:        #0D47A1;
+    --blue-light:  #E3F2FD;
+    --gray-100:    #F5F5F5;
+    --gray-200:    #EEEEEE;
+    --gray-400:    #BDBDBD;
+    --gray-600:    #757575;
+    --gray-800:    #424242;
+    --gray-900:    #212121;
+    --white:       #FFFFFF;
+    --shadow:      0 1px 4px rgba(0,0,0,0.10);
+    --shadow-md:   0 2px 10px rgba(0,0,0,0.13);
+    --radius:      8px;
+    --radius-lg:   12px;
+  }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
+    color: var(--gray-900);
+    background: var(--gray-100);
+    min-height: 100vh;
+  }
+
+  header {
+    background: var(--green);
+    color: var(--white);
+    padding: 18px 32px 16px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  header h1 { font-size: 18px; font-weight: 600; line-height: 1.3; }
+  header .sub { font-size: 12px; opacity: 0.8; margin-top: 3px; }
+  .badge {
+    font-size: 11px; font-weight: 500; padding: 4px 10px;
+    border-radius: 20px; border: 1px solid rgba(255,255,255,0.4);
+    color: var(--white); white-space: nowrap;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 64px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--white);
+    border-right: 1px solid var(--gray-200);
+    padding: 20px 18px;
+    overflow-y: auto;
+  }
+  .sidebar-section { margin-bottom: 20px; }
+  .sidebar-section h3 {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--gray-600);
+    margin-bottom: 12px; padding-bottom: 6px;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .ctrl { margin-bottom: 12px; }
+  .ctrl-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+  .ctrl-top label { font-size: 12px; color: var(--gray-800); line-height: 1.35; max-width: 200px; }
+  .ctrl-top .val { font-size: 12px; font-weight: 600; color: var(--green-mid); white-space: nowrap; }
+  input[type=range] {
+    width: 100%; accent-color: var(--green-mid);
+    height: 4px; cursor: pointer;
+  }
+  .ctrl-hint { font-size: 10px; color: var(--gray-600); margin-top: 2px; line-height: 1.4; }
+
+  .run-btn {
+    width: 100%; padding: 10px;
+    background: var(--green);
+    color: var(--white);
+    border: none; border-radius: var(--radius);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+    margin-top: 4px;
+  }
+  .run-btn:hover { background: var(--green-mid); }
+  .run-btn:active { transform: scale(0.98); }
+
+  .reset-btn {
+    width: 100%; padding: 7px;
+    background: transparent;
+    color: var(--gray-600);
+    border: 1px solid var(--gray-400); border-radius: var(--radius);
+    font-size: 12px; cursor: pointer; transition: all 0.15s;
+    margin-top: 6px;
+  }
+  .reset-btn:hover { border-color: var(--gray-600); color: var(--gray-800); }
+
+  /* ── Main ── */
+  .main { padding: 20px 24px; overflow-y: auto; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .stat-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .stat-card .lbl { font-size: 11px; color: var(--gray-600); margin-bottom: 6px; line-height: 1.3; }
+  .stat-card .val { font-size: 22px; font-weight: 600; color: var(--gray-900); }
+  .stat-card .val.pos { color: var(--green-mid); }
+  .stat-card .val.neg { color: var(--red); }
+  .stat-card .val.warn { color: var(--amber); }
+  .stat-card .sub-val { font-size: 11px; color: var(--gray-600); margin-top: 3px; }
+
+  .chart-card {
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px 14px;
+    box-shadow: var(--shadow);
+    margin-bottom: 16px;
+  }
+  .chart-card h2 { font-size: 13px; font-weight: 600; color: var(--gray-800); margin-bottom: 4px; }
+  .chart-card .chart-sub { font-size: 11px; color: var(--gray-600); margin-bottom: 12px; }
+
+  .legend-row {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-size: 11px; color: var(--gray-600);
+    margin-bottom: 10px;
+  }
+  .legend-row span { display: flex; align-items: center; gap: 5px; }
+  .leg-sq { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .leg-dash { width: 18px; height: 0; flex-shrink: 0; }
+
+  canvas { display: block; }
+
+  .methodology {
+    background: var(--teal-light);
+    border-left: 3px solid var(--teal);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    font-size: 12px;
+    color: var(--gray-800);
+    line-height: 1.7;
+  }
+  .methodology strong { color: var(--teal); }
+
+  .scenario-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .scenario-btn {
+    padding: 9px 10px;
+    border-radius: var(--radius);
+    border: 1.5px solid var(--gray-300);
+    background: var(--white);
+    font-size: 11px; font-weight: 500;
+    cursor: pointer; text-align: center;
+    transition: all 0.15s; color: var(--gray-800);
+    line-height: 1.4;
+  }
+  .scenario-btn:hover { border-color: var(--green-mid); color: var(--green-mid); }
+  .scenario-btn.active { background: var(--green-pale); border-color: var(--green-mid); color: var(--green-mid); }
+  .scenario-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gray-600); margin-bottom: 6px; }
+
+  .progress-bar {
+    height: 3px; background: var(--gray-200);
+    border-radius: 2px; overflow: hidden; margin-bottom: 4px;
+    display: none;
+  }
+  .progress-fill {
+    height: 100%; background: var(--green-mid);
+    border-radius: 2px; transition: width 0.05s;
+  }
+
+  footer {
+    text-align: center; font-size: 11px; color: var(--gray-600);
+    padding: 12px; border-top: 1px solid var(--gray-200);
+    background: var(--white);
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--gray-200); }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .scenario-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Monte Carlo NPV Simulator</h1>
+    <div class="sub">Les Cayes Agroforestry Project &nbsp;·&nbsp; PositiveRipples.org &nbsp;·&nbsp; FIN 450 / MBA 620</div>
+  </div>
+  <span class="badge">Extension 1 — Companion Tool</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <h3>Quick Scenarios</h3>
+      <div class="scenario-label">Load preset assumptions</div>
+      <div class="scenario-row" style="grid-template-columns:1fr 1fr;">
+        <button class="scenario-btn" onclick="loadScenario('base')">Base Case</button>
+        <button class="scenario-btn" onclick="loadScenario('optimistic')">Optimistic</button>
+        <button class="scenario-btn" onclick="loadScenario('hurricane')">Hurricane Hit</button>
+        <button class="scenario-btn" onclick="loadScenario('charcoal')">Charcoal Risk</button>
+        <button class="scenario-btn" onclick="loadScenario('policy')">Policy Boom</button>
+        <button class="scenario-btn" onclick="loadScenario('pessimistic')">Pessimistic</button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Carbon Price Model (GBM)</h3>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Year 1 base price ($/tCO₂)</label>
+          <span class="val" id="basePriceOut">$10</span>
+        </div>
+        <input type="range" id="basePrice" min="5" max="30" step="1" value="10">
+        <div class="ctrl-hint">Starting carbon credit price in VCM</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Annual drift (inflation / policy growth)</label>
+          <span class="val" id="driftOut">3.0%</span>
+        </div>
+        <input type="range" id="drift" min="0" max="10" step="0.5" value="3">
+        <div class="ctrl-hint">Expected annual price appreciation rate</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Year 1 volatility (σ₁)</label>
+          <span class="val" id="vol1Out">15%</span>
+        </div>
+        <input type="range" id="vol1" min="5" max="50" step="1" value="15">
+        <div class="ctrl-hint">Price uncertainty in Year 1</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Volatility growth (σ widens per year)</label>
+          <span class="val" id="volGrowthOut">+2.0%/yr</span>
+        </div>
+        <input type="range" id="volGrowth" min="0" max="6" step="0.5" value="2">
+        <div class="ctrl-hint">Uncertainty increases over time — wider fan</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Project Risk Assumptions</h3>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Mean survival rate at Year 10</label>
+          <span class="val" id="survBaseOut">80%</span>
+        </div>
+        <input type="range" id="survBase" min="50" max="95" step="1" value="80">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Survival uncertainty (±σ)</label>
+          <span class="val" id="survSdOut">±8%</span>
+        </div>
+        <input type="range" id="survSd" min="2" max="20" step="1" value="8">
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Hurricane probability per year</label>
+          <span class="val" id="hurrProbOut">15%</span>
+        </div>
+        <input type="range" id="hurrProb" min="0" max="50" step="1" value="15">
+        <div class="ctrl-hint">Historical average for Les Cayes: ~20–25%/yr</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Hurricane tree loss (if hit, Yr ≤ 4)</label>
+          <span class="val" id="hurrLossOut">40%</span>
+        </div>
+        <input type="range" id="hurrLoss" min="10" max="80" step="5" value="40">
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>Financial Parameters</h3>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Discount rate</label>
+          <span class="val" id="discRateOut">10%</span>
+        </div>
+        <input type="range" id="discRate" min="4" max="20" step="1" value="10">
+        <div class="ctrl-hint">Case baseline: 10%. Range for sensitivity: 6–15%</div>
+      </div>
+      <div class="ctrl">
+        <div class="ctrl-top">
+          <label>Number of trials</label>
+          <span class="val" id="nTrialsOut">1,000</span>
+        </div>
+        <input type="range" id="nTrials" min="200" max="5000" step="100" value="1000">
+      </div>
+    </div>
+
+    <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    <button class="run-btn" onclick="runSim()">▶ Run Simulation</button>
+    <button class="reset-btn" onclick="resetDefaults()">Reset to defaults</button>
+  </aside>
+
+  <!-- ── Main Panel ── -->
+  <main class="main">
+
+    <div class="methodology">
+      <strong>Model methodology:</strong> Carbon prices follow <strong>Geometric Brownian Motion (GBM)</strong> —
+      the same framework used in Black-Scholes options pricing. Each trial generates a price path:
+      <em>P(t) = P(0) · exp[(μ − ½σ²)t + σ√t · Z]</em> where μ is the drift rate, σ is volatility,
+      and Z ~ N(0,1). Volatility widens each year by the growth rate you set, producing a realistic fan of
+      uncertainty. Survival rates and hurricane events are drawn independently each trial. NPV is computed
+      by discounting net annual cash flows at the chosen rate.
+    </div>
+
+    <!-- Stat cards -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="lbl">Median NPV (Year 10)</div>
+        <div class="val" id="medNpv">—</div>
+        <div class="sub-val" id="medNpvSub">Run simulation</div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl">Probability NPV &gt; 0</div>
+        <div class="val" id="pPos">—</div>
+        <div class="sub-val" id="pPosSub">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl">5th Percentile (downside)</div>
+        <div class="val neg" id="p5">—</div>
+        <div class="sub-val" id="p5Sub">Worst ~5% of outcomes</div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl">95th Percentile (upside)</div>
+        <div class="val pos" id="p95">—</div>
+        <div class="sub-val" id="p95Sub">Best ~5% of outcomes</div>
+      </div>
+    </div>
+
+    <div class="stat-grid" style="grid-template-columns: repeat(4,1fr);">
+      <div class="stat-card">
+        <div class="lbl">Mean NPV</div>
+        <div class="val" id="meanNpv">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl">Std Deviation of NPV</div>
+        <div class="val" id="sdNpv">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl">Expected carbon price, Yr 10</div>
+        <div class="val" id="expCarbon">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="lbl">Hurricane hit rate (actual)</div>
+        <div class="val" id="hurrActual">—</div>
+      </div>
+    </div>
+
+    <!-- NPV Distribution -->
+    <div class="chart-card">
+      <h2>NPV Distribution — <span id="trialCount">1,000</span> Trials</h2>
+      <div class="chart-sub">Each bar represents the number of simulation trials falling in that NPV range. Green = positive NPV; red = negative.</div>
+      <div class="legend-row">
+        <span><span class="leg-sq" style="background:#2E7D32;"></span>Positive NPV</span>
+        <span><span class="leg-sq" style="background:#B71C1C;"></span>Negative NPV</span>
+        <span><span class="leg-sq" style="background:#E65100; opacity:0.8;"></span>Median</span>
+      </div>
+      <div style="position:relative; width:100%; height:240px;">
+        <canvas id="histChart" role="img" aria-label="Histogram of simulated NPV outcomes. Bars colored green for positive and red for negative NPV values.">Histogram of simulated 10-year NPV outcomes for the Les Cayes agroforestry project.</canvas>
+      </div>
+    </div>
+
+    <!-- Carbon Price Paths -->
+    <div class="chart-card">
+      <h2>Carbon Price Paths — 60 Sample Trials</h2>
+      <div class="chart-sub">Geometric Brownian Motion with time-varying volatility. Uncertainty (fan width) grows each year.</div>
+      <div class="legend-row">
+        <span><span class="leg-sq" style="background:#1D9E75; opacity:0.5;"></span>Sample paths</span>
+        <span><span class="leg-sq" style="background:#E65100;"></span>Expected path (drift only)</span>
+        <span><span class="leg-sq" style="background:#B71C1C; opacity:0.6;"></span>±1σ envelope</span>
+      </div>
+      <div style="position:relative; width:100%; height:240px;">
+        <canvas id="pathChart" role="img" aria-label="Line chart showing 60 sample carbon price paths over 10 years, with a widening uncertainty band.">60 simulated carbon price paths with GBM drift and widening volatility over 10 years.</canvas>
+      </div>
+    </div>
+
+    <!-- Carbon Price Distribution at Year 10 -->
+    <div class="chart-card">
+      <h2>Carbon Price Distribution at Year 10</h2>
+      <div class="chart-sub">Log-normal distribution of ending carbon price across all trials. Skewed right — upside tail is longer than downside.</div>
+      <div style="position:relative; width:100%; height:200px;">
+        <canvas id="carbonDistChart" role="img" aria-label="Histogram of simulated carbon prices at Year 10, showing a right-skewed log-normal distribution.">Distribution of carbon prices at Year 10 across all simulation trials.</canvas>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  PositiveRipples.org &nbsp;·&nbsp; Les Cayes Reforestation Project &nbsp;·&nbsp; FIN 450 / MBA 620 Companion Tool &nbsp;·&nbsp; For academic use only
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+let histChart = null, pathChart = null, carbonDistChart = null;
+
+// ── Scenarios ────────────────────────────────────────────────────────────────
+const SCENARIOS = {
+  base:       { basePrice:10, drift:3,  vol1:15, volGrowth:2,   survBase:80, survSd:8,  hurrProb:15, hurrLoss:40, discRate:10, nTrials:1000 },
+  optimistic: { basePrice:15, drift:5,  vol1:12, volGrowth:1.5, survBase:88, survSd:5,  hurrProb:10, hurrLoss:30, discRate:8,  nTrials:1000 },
+  hurricane:  { basePrice:10, drift:3,  vol1:15, volGrowth:2,   survBase:75, survSd:10, hurrProb:30, hurrLoss:55, discRate:10, nTrials:1000 },
+  charcoal:   { basePrice:10, drift:3,  vol1:15, volGrowth:2,   survBase:65, survSd:12, hurrProb:15, hurrLoss:40, discRate:10, nTrials:1000 },
+  policy:     { basePrice:12, drift:8,  vol1:20, volGrowth:3,   survBase:82, survSd:7,  hurrProb:15, hurrLoss:40, discRate:10, nTrials:1000 },
+  pessimistic:{ basePrice:7,  drift:1,  vol1:25, volGrowth:4,   survBase:68, survSd:15, hurrProb:25, hurrLoss:50, discRate:15, nTrials:1000 },
+};
+
+function loadScenario(name) {
+  const s = SCENARIOS[name];
+  Object.entries(s).forEach(([k, v]) => {
+    const el = $(k);
+    if (el) { el.value = v; updateLabel(k); }
+  });
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  runSim();
+}
+
+function resetDefaults() {
+  loadScenario('base');
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+}
+
+// ── Label updaters ────────────────────────────────────────────────────────────
+function updateLabel(id) {
+  const v = $(id).value;
+  const map = {
+    basePrice:  () => '$' + v,
+    drift:      () => parseFloat(v).toFixed(1) + '%',
+    vol1:       () => v + '%',
+    volGrowth:  () => '+' + parseFloat(v).toFixed(1) + '%/yr',
+    survBase:   () => v + '%',
+    survSd:     () => '±' + v + '%',
+    hurrProb:   () => v + '%',
+    hurrLoss:   () => v + '%',
+    discRate:   () => v + '%',
+    nTrials:    () => parseInt(v).toLocaleString(),
+  };
+  const out = $(id + 'Out');
+  if (out && map[id]) out.textContent = map[id]();
+}
+
+['basePrice','drift','vol1','volGrowth','survBase','survSd','hurrProb','hurrLoss','discRate','nTrials'].forEach(id => {
+  $(id).addEventListener('input', () => { updateLabel(id); });
+});
+
+// ── Math helpers ──────────────────────────────────────────────────────────────
+function randn() {
+  let u = 0, v = 0;
+  while (!u) u = Math.random();
+  while (!v) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function fmt(v) {
+  const sign = v < 0 ? '-' : '';
+  const abs = Math.abs(v);
+  if (abs >= 1e6)  return sign + '$' + (abs / 1e6).toFixed(2) + 'M';
+  if (abs >= 1000) return sign + '$' + Math.round(abs / 1000) + 'K';
+  return sign + '$' + Math.round(abs);
+}
+function pct(v) { return Math.round(v * 100) + '%'; }
+function percentile(sorted, p) { return sorted[Math.floor(sorted.length * p)]; }
+
+// ── Project constants ─────────────────────────────────────────────────────────
+const INIT         = -430000;
+const TREES_BY_YR  = [0, 0, 10000, 10000, 9600, 9200, 8800, 8500, 8300, 8100, 8000];
+const CO2_BY_YR    = [0, 0, 0.5, 1.2, 2.0, 3.0, 3.5, 5.0, 6.0, 7.0, 8.0];
+const FRUIT_REV    = [0, 0, 0, 30000, 36000, 42000, 48000, 54000, 60000, 66000, 72000];
+const NURSERY_NET  = [0,-18000,-12000,-4000,6000,18000,32000,45000,55000,65000,80000];
+const OP_COST      = [80000,60000,40000,25000,20000,15000,12000,12000,12000,12000,12000];
+const YEARS        = 10;
+
+// ── Main simulation ───────────────────────────────────────────────────────────
+function runSim() {
+  const baseP    = +$('basePrice').value;
+  const drift    = +$('drift').value / 100;
+  const vol1     = +$('vol1').value / 100;
+  const volG     = +$('volGrowth').value / 100;
+  const survB    = +$('survBase').value / 100;
+  const survSd   = +$('survSd').value / 100;
+  const hurrP    = +$('hurrProb').value / 100;
+  const hurrLoss = +$('hurrLoss').value / 100;
+  const r        = +$('discRate').value / 100;
+  const N        = +$('nTrials').value;
+
+  $('trialCount').textContent = N.toLocaleString();
+
+  const npvs = [];
+  const samplePaths = [];
+  const yr10prices = [];
+  let hurrCount = 0;
+
+  for (let i = 0; i < N; i++) {
+    const survMult = clamp(survB + randn() * survSd, 0.3, 1.0);
+    let hurricaneHit = false;
+    let cumNPV = INIT;
+    const pricePath = [baseP];
+
+    for (let y = 1; y <= YEARS; y++) {
+      const sigY    = vol1 + volG * (y - 1);
+      const logRet  = (drift - 0.5 * sigY * sigY) + sigY * randn();
+      const price   = pricePath[y - 1] * Math.exp(logRet);
+      pricePath.push(price);
+
+      if (!hurricaneHit && Math.random() < hurrP) {
+        hurricaneHit = true;
+        if (i < N) hurrCount++;
+      }
+
+      const hurrFactor = (hurricaneHit && y <= 5) ? (1 - hurrLoss) : 1;
+      const survFactor  = survMult * hurrFactor;
+      const trees       = Math.round(TREES_BY_YR[y] * survFactor);
+      const carbonRev   = trees * CO2_BY_YR[y] * price;
+      const rev         = carbonRev + FRUIT_REV[y] * survFactor + NURSERY_NET[y];
+      const net         = rev - OP_COST[y];
+      cumNPV           += net / Math.pow(1 + r, y);
+    }
+
+    npvs.push(cumNPV);
+    yr10prices.push(pricePath[YEARS]);
+    if (i < 60) samplePaths.push(pricePath);
+  }
+
+  npvs.sort((a, b) => a - b);
+  yr10prices.sort((a, b) => a - b);
+
+  const median  = percentile(npvs, 0.5);
+  const p5      = percentile(npvs, 0.05);
+  const p95     = percentile(npvs, 0.95);
+  const mean    = npvs.reduce((s, v) => s + v, 0) / N;
+  const sd      = Math.sqrt(npvs.reduce((s, v) => s + (v - mean) ** 2, 0) / N);
+  const posCount= npvs.filter(v => v > 0).length;
+  const pPosVal = posCount / N;
+  const expCarbonP = baseP * Math.exp(drift * YEARS);
+  const medCarbon = percentile(yr10prices, 0.5);
+
+  // Update stat cards
+  $('medNpv').textContent = fmt(median);
+  $('medNpv').className   = 'val ' + (median >= 0 ? 'pos' : 'neg');
+  $('medNpvSub').textContent = 'Mean: ' + fmt(mean);
+
+  $('pPos').textContent  = pct(pPosVal);
+  $('pPos').className    = 'val ' + (pPosVal >= 0.65 ? 'pos' : pPosVal >= 0.45 ? 'warn' : 'neg');
+  $('pPosSub').textContent = posCount.toLocaleString() + ' of ' + N.toLocaleString() + ' trials';
+
+  $('p5').textContent    = fmt(p5);
+  $('p5Sub').textContent = 'IQR: ' + fmt(percentile(npvs, 0.25)) + ' to ' + fmt(percentile(npvs, 0.75));
+  $('p95').textContent   = fmt(p95);
+  $('p95Sub').textContent = 'Range: ' + fmt(npvs[0]) + ' – ' + fmt(npvs[N-1]);
+
+  $('meanNpv').textContent    = fmt(mean);
+  $('meanNpv').className      = 'val ' + (mean >= 0 ? 'pos' : 'neg');
+  $('sdNpv').textContent      = fmt(sd);
+  $('expCarbon').textContent  = '$' + expCarbonP.toFixed(2) + ' (median $' + medCarbon.toFixed(2) + ')';
+  $('hurrActual').textContent = pct(hurrCount / N);
+
+  drawHist(npvs, median, N);
+  drawPaths(samplePaths, drift, vol1, volG, baseP);
+  drawCarbonDist(yr10prices);
+}
+
+// ── Histogram ─────────────────────────────────────────────────────────────────
+function drawHist(npvs, median, N) {
+  const BINS   = 40;
+  const lo     = npvs[0], hi = npvs[N - 1];
+  const bw     = (hi - lo) / BINS;
+  const counts = new Array(BINS).fill(0);
+  npvs.forEach(v => { counts[Math.min(BINS - 1, Math.floor((v - lo) / bw))]++; });
+
+  const labels = counts.map((_, i) => fmt(lo + (i + 0.5) * bw));
+  const colors = counts.map((_, i) => (lo + (i + 0.5) * bw) >= 0 ? '#2E7D32' : '#B71C1C');
+  const medBin = Math.min(BINS - 1, Math.floor((median - lo) / bw));
+  colors[medBin] = '#E65100';
+
+  if (histChart) histChart.destroy();
+  histChart = new Chart($('histChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Trials', data: counts, backgroundColor: colors, borderWidth: 0, borderRadius: 2 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: items => 'NPV ≈ ' + items[0].label,
+          label: item  => item.raw + ' trials'
+        }}
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, title: { display: true, text: 'Trials', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ── Price paths ───────────────────────────────────────────────────────────────
+function drawPaths(paths, drift, vol1, volG, baseP) {
+  const labels = Array.from({ length: YEARS + 1 }, (_, y) => 'Yr ' + y);
+  const expPath = labels.map((_, y) => +(baseP * Math.exp(drift * y)).toFixed(2));
+  const upper   = labels.map((_, y) => { const s = vol1 + volG * y; return +(baseP * Math.exp(drift * y + s)).toFixed(2); });
+  const lower   = labels.map((_, y) => { const s = vol1 + volG * y; return +(Math.max(0.5, baseP * Math.exp(drift * y - s))).toFixed(2); });
+
+  const pathDS = paths.map((p, i) => ({
+    label: i === 0 ? 'Sample paths' : '',
+    data: p.map(v => +v.toFixed(2)),
+    borderColor: 'rgba(29,158,117,0.2)',
+    borderWidth: 1, pointRadius: 0, tension: 0.3
+  }));
+
+  if (pathChart) pathChart.destroy();
+  pathChart = new Chart($('pathChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        ...pathDS,
+        { label: 'Expected path', data: expPath, borderColor: '#E65100', borderWidth: 2.5, pointRadius: 0, tension: 0.3 },
+        { label: '+1σ', data: upper, borderColor: 'rgba(183,28,28,0.55)', borderWidth: 1.5, borderDash: [5, 3], pointRadius: 0, tension: 0.3 },
+        { label: '-1σ', data: lower, borderColor: 'rgba(183,28,28,0.55)', borderWidth: 1.5, borderDash: [5, 3], pointRadius: 0, tension: 0.3 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { filter: item => item.datasetIndex >= paths.length }
+      },
+      scales: {
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 }, callback: v => '$' + v },
+             title: { display: true, text: '$/tCO₂', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ── Carbon price distribution at Yr 10 ───────────────────────────────────────
+function drawCarbonDist(yr10prices) {
+  const N    = yr10prices.length;
+  const BINS = 30;
+  const lo   = yr10prices[0], hi = yr10prices[N - 1];
+  const bw   = (hi - lo) / BINS;
+  const counts = new Array(BINS).fill(0);
+  yr10prices.forEach(v => { counts[Math.min(BINS - 1, Math.floor((v - lo) / bw))]++; });
+  const labels = counts.map((_, i) => '$' + (lo + (i + 0.5) * bw).toFixed(1));
+
+  if (carbonDistChart) carbonDistChart.destroy();
+  carbonDistChart = new Chart($('carbonDistChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Trials', data: counts, backgroundColor: '#1B5E20', borderWidth: 0, borderRadius: 2, opacity: 0.8 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          title: items => 'Yr 10 price ≈ ' + items[0].label,
+          label: item  => item.raw + ' trials'
+        }}
+      },
+      scales: {
+        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } }, grid: { display: false } },
+        y: { ticks: { font: { size: 10 } }, title: { display: true, text: 'Trials', font: { size: 10 } } }
+      }
+    }
+  });
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+Object.keys(SCENARIOS.base).forEach(updateLabel);
+runSim();
+</script>
+</body>
+</html>
